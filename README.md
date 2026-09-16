@@ -2,6 +2,14 @@
 
 Extensão para Google Chrome, Brave e Microsoft Edge que, após o login na Saipos:
 
+## Visão técnica
+
+Automatiza um fluxo repetitivo de configuração por meio de scripts de conteúdo, com verificação de cada etapa e interface para acompanhar o resultado. A execução fica restrita aos domínios da Saipos.
+
+Tecnologias principais: JavaScript, HTML, CSS e Chrome Extensions API.
+
+## Fluxo automatizado
+
 1. abre o menu do perfil;
 2. entra em **Confirmações de Impressão**;
 3. seleciona **Imprimir neste Computador**;
