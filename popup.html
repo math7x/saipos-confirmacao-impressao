@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Saipos - Impressão</title>
+    <style>
+      body { width: 290px; margin: 0; padding: 18px; font: 14px Arial, sans-serif; color: #202124; }
+      h1 { margin: 0 0 8px; font-size: 17px; }
+      p { margin: 0 0 15px; color: #5f6368; line-height: 1.4; }
+      button { width: 100%; border: 0; border-radius: 4px; padding: 11px; background: #1976d2; color: white; font-weight: 700; cursor: pointer; }
+      button:disabled { opacity: .65; cursor: default; }
+      #status { min-height: 18px; margin-top: 12px; font-size: 13px; }
+      .ok { color: #137333; }
+      .error { color: #b3261e; }
+    </style>
+  </head>
+  <body>
+    <h1>Confirmações de impressão</h1>
+    <p>A configuração é aplicada automaticamente 4 segundos depois de entrar no Kanban.</p>
+    <button id="run" type="button">Aplicar agora</button>
+    <div id="status" role="status"></div>
+    <script src="popup.js"></script>
+  </body>
+</html>
