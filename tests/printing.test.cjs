@@ -11,7 +11,10 @@ function harness(saved = {}, route = "#/app/sale/table-order/new-main", stored =
   const pending = new Map();
   const session = new Map();
   const listeners = {};
-  const state = { opened: 0, saved: 0, blocked: false, closed: true, toasts: [], fields: new Map() };
+  const state = {
+    opened: 0, saved: 0, blocked: false, closed: true, toasts: [], fields: new Map(),
+    categoryDialog: null, categoryWaits: 0, confirmCategory: null
+  };
   let timerId = 0;
   class Select {
     constructor(texts, current) {
@@ -60,6 +63,8 @@ function harness(saved = {}, route = "#/app/sale/table-order/new-main", stored =
         selectControl = hooks.control;
         findSaveButton = hooks.save;
         toast = hooks.toast;
+        categoryCreationDialog = hooks.category;
+        waitForCategoryConfirmation = hooks.categoryWait;
       }
     };
   })();`);
@@ -77,7 +82,12 @@ function harness(saved = {}, route = "#/app/sale/table-order/new-main", stored =
     container: (label) => label,
     control: (container) => container,
     save: () => ({ click() { state.saved++; }, getAttribute() { return null; } }),
-    toast: (text) => state.toasts.push(text)
+    toast: (text) => state.toasts.push(text),
+    category: () => state.categoryDialog,
+    categoryWait: (_dialog, onConfirmed) => {
+      state.categoryWaits++;
+      state.confirmCategory = onConfirmed;
+    }
   });
   return { context, prefs, state, pending, session, listeners, stored,
     api: context.testApi,
@@ -152,6 +162,20 @@ test("janela de caixa bloqueia a execução e retoma após fechar sem mudar URL"
   assert.equal(h.state.saved, 0);
   assert.equal([...h.pending.values()][0].ms, 5000);
   h.state.blocked = false;
+  await h.fire();
+  assert.equal(h.state.saved, 1);
+});
+
+test("criação de categoria aguarda Confirmar e retoma a impressão ao fechar", async () => {
+  const h = harness();
+  h.state.categoryDialog = {};
+  await h.fire();
+  assert.equal(h.state.opened, 0);
+  assert.equal(h.state.categoryWaits, 1);
+
+  h.state.categoryDialog = null;
+  h.state.confirmCategory();
+  assert.equal([...h.pending.values()][0].ms, 600);
   await h.fire();
   assert.equal(h.state.saved, 1);
 });

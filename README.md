@@ -63,9 +63,9 @@ Sem personalização, o padrão permanece **Imprimir neste Computador** e **Semp
 
 Os campos são tratados individualmente. Se uma loja não possuir Delivery, Atendimento por Fichas ou Atendimento de Mesa, a extensão configura apenas as opções disponíveis na janela e salva normalmente. Se um campo presente não aceitar a escolha solicitada, a execução informa a falha e não clica em Salvar.
 
-Se outra janela da Saipos estiver aberta, como **Opções de frente de caixa**, a extensão não executa nenhuma ação. Ela aguarda essa janela ser concluída e tenta novamente após 5 segundos.
+Se aparecer a janela de criação de categoria com os campos **Onde imprimir** e **Tipo de imposto**, a extensão pausa o processo. Preencha os dois campos e clique em **Confirmar**; quando a janela fechar, a extensão retoma a configuração das preferências de impressão automaticamente. Outras janelas da Saipos, como **Opções de frente de caixa**, continuam bloqueando a execução até serem concluídas.
 
-Depois de substituir ou atualizar os arquivos da extensão, abra a página de extensões do navegador e clique no botão **Recarregar**. Atualize também as abas abertas da Saipos. A versão 1.4.0 adiciona a permissão de armazenamento para guardar as preferências.
+Depois de substituir ou atualizar os arquivos da extensão, abra a página de extensões do navegador e clique no botão **Recarregar**. Atualize também as abas abertas da Saipos. A versão 1.4.1 passa a aguardar explicitamente a confirmação da criação de categoria antes de retomar a automação.
 
 Ela só atua em páginas HTTPS do domínio `saipos.com` e não lê nem armazena usuário ou senha.
 

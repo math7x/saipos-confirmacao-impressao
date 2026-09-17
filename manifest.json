@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Saipos - Confirmação de Impressão",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Aplica suas preferências de impressão ao entrar no Delivery, Fichas ou Mesas da Saipos.",
   "author": "math7x",
   "permissions": ["tabs", "storage"],

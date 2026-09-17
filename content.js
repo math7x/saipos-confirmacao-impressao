@@ -17,9 +17,12 @@
   ];
   const LOGIN_DELAY_MS = 4000;
   const RETRY_DELAY_MS = 5000;
+  const CATEGORY_RESUME_DELAY_MS = 600;
+  const CATEGORY_FIELD_LABELS = ["Onde imprimir", "Tipo de imposto"];
   let running = false;
   let automaticTimer = null;
   let routeRevision = 0;
+  let categoryWaitCleanup = null;
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -86,6 +89,72 @@
       // A própria janela de impressão pode continuar caso já tenha sido aberta.
       return !normalized(dialog.textContent).includes(printTitle);
     });
+  }
+
+  function categoryFieldControls(dialog) {
+    return CATEGORY_FIELD_LABELS.map((labelText) => {
+      const label = findExactText(labelText, dialog);
+      return {
+        label,
+        control: label && selectControl(fieldContainer(label, dialog))
+      };
+    });
+  }
+
+  // Esta janela não pertence ao fluxo de impressão. A extensão espera a
+  // confirmação do usuário para não interromper o preenchimento da categoria.
+  function categoryCreationDialog() {
+    const dialogs = document.querySelectorAll(
+      "[role='dialog'], mat-dialog-container, .modal.in, .modal[style*='display: block']"
+    );
+
+    return [...dialogs].find((dialog) =>
+      visible(dialog) && categoryFieldControls(dialog).every(({ label, control }) => label && control)
+    ) || null;
+  }
+
+  function categoryFieldsAreChosen(dialog) {
+    return categoryFieldControls(dialog).every(({ control }) => {
+      const value = normalized(currentSelectText(control));
+      return value && !value.startsWith("selecione");
+    });
+  }
+
+  function stopWaitingForCategory() {
+    categoryWaitCleanup?.();
+    categoryWaitCleanup = null;
+  }
+
+  function waitForCategoryConfirmation(dialog, onConfirmed) {
+    if (categoryWaitCleanup) return;
+
+    const stop = () => {
+      document.removeEventListener("click", onClick, true);
+      if (categoryWaitCleanup === stop) categoryWaitCleanup = null;
+    };
+    const onClick = (event) => {
+      const button = clickable(event.target);
+      if (!button || !dialog.contains(button) || !normalized(button.textContent).includes("confirmar")) {
+        return;
+      }
+      if (!categoryFieldsAreChosen(dialog)) {
+        toast("Preencha Onde imprimir e Tipo de imposto antes de confirmar.", "info");
+        return;
+      }
+
+      stop();
+      waitFor(() => !visible(dialog), 8000).then((closed) => {
+        if (closed) {
+          onConfirmed();
+          return;
+        }
+        // A Saipos pode manter a janela aberta ao mostrar uma validação.
+        waitForCategoryConfirmation(dialog, onConfirmed);
+      });
+    };
+
+    categoryWaitCleanup = stop;
+    document.addEventListener("click", onClick, true);
   }
 
   function toast(message, type = "info") {
@@ -385,6 +454,15 @@
 
       if (!isTargetPage()) return;
 
+      const categoryDialog = categoryCreationDialog();
+      if (categoryDialog) {
+        toast("Preencha Onde imprimir e Tipo de imposto; após Confirmar, a impressão será configurada.");
+        waitForCategoryConfirmation(categoryDialog, () => {
+          if (isTargetPage()) scheduleTargetRun(CATEGORY_RESUME_DELAY_MS);
+        });
+        return;
+      }
+
       if (blockingDialogIsVisible()) {
         scheduleTargetRun(RETRY_DELAY_MS);
         return;
@@ -399,6 +477,7 @@
 
   function handleRouteChange() {
     routeRevision += 1;
+    stopWaitingForCategory();
     const hash = currentHash();
 
     if (hash === LOGIN_HASH) {
