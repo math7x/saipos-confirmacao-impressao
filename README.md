@@ -44,3 +44,7 @@ Depois de substituir ou atualizar os arquivos da extensão, abra a página de ex
 Ela só atua em páginas HTTPS do domínio `saipos.com` e não lê nem armazena usuário ou senha.
 
 O ícone da extensão utiliza o logotipo UP Tecnologias com fundo transparente.
+
+## Autoria
+
+Desenvolvido por [math7x](https://github.com/math7x).

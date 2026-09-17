@@ -3,6 +3,7 @@
   "name": "Saipos - Confirmação de Impressão",
   "version": "1.3.2",
   "description": "Configura automaticamente todas as confirmações da Saipos para Sempre Imprimir neste computador.",
+  "author": "math7x",
   "permissions": ["tabs"],
   "host_permissions": [
     "https://conta.saipos.com/*",
