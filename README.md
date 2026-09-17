@@ -1,6 +1,14 @@
 # Saipos - Confirmação de Impressão
 
-Extensão para Google Chrome, Brave e Microsoft Edge que, após o login na Saipos:
+Extensão para Google Chrome, Brave e Microsoft Edge que configura automaticamente as confirmações de impressão da Saipos neste computador.
+
+## Problema que resolve
+
+Cada estação precisa ter várias opções de impressão configuradas corretamente. Repetir esse ajuste manualmente após o login, uma reinstalação ou a preparação de um novo computador consome tempo e pode deixar alguma confirmação com o comportamento errado.
+
+## Solução desenvolvida
+
+A extensão abre a configuração necessária, seleciona **Imprimir neste Computador** e aplica **Sempre Imprimir** às opções disponíveis. Ela valida cada etapa, ignora módulos que a loja não utiliza e permite repetir o processo manualmente pelo ícone. Assim, a preparação da estação fica padronizada e menos sujeita a esquecimentos.
 
 ## Visão técnica
 
