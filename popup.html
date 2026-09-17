@@ -5,23 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Saipos - Impressão</title>
     <style>
-      body { width: 290px; margin: 0; padding: 18px; font: 14px Arial, sans-serif; color: #202124; }
-      h1 { margin: 0 0 8px; font-size: 17px; }
-      p { margin: 0 0 15px; color: #5f6368; line-height: 1.4; }
-      button { width: 100%; border: 0; border-radius: 4px; padding: 11px; background: #1976d2; color: white; font-weight: 700; cursor: pointer; }
-      button:disabled { opacity: .65; cursor: default; }
-      #status { min-height: 18px; margin-top: 12px; font-size: 13px; }
+      * { box-sizing: border-box; }
+      body { width: 400px; margin: 0; padding: 18px; font: 13px Arial, sans-serif; color: #202124; background: #f5f7fa; }
+      header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+      header img { width: 48px; height: 48px; object-fit: contain; }
+      h1 { margin: 0 0 4px; font-size: 18px; }
+      header span { color: #1976d2; font-size: 12px; }
+      p { margin: 0 0 12px; color: #5f6368; line-height: 1.45; }
+      fieldset { margin: 0 0 10px; padding: 10px; border: 1px solid #dce2eb; border-radius: 7px; background: white; }
+      legend { padding: 0 5px; font-weight: 700; color: #284260; }
+      .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .fields.single { grid-template-columns: 1fr; }
+      label { display: block; font-size: 12px; color: #4c5563; }
+      select { width: 100%; margin-top: 5px; padding: 8px 5px; border: 1px solid #b9c5d5; border-radius: 4px; background: white; color: #202124; font: 12px Arial, sans-serif; }
+      select:focus-visible, button:focus-visible { outline: 2px solid #1976d2; outline-offset: 2px; }
+      .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      button { border: 1px solid #1976d2; border-radius: 5px; padding: 10px 6px; background: #1976d2; color: white; font-weight: 700; font-size: 12px; cursor: pointer; }
+      #save { background: white; color: #155da4; }
+      button:disabled, select:disabled { opacity: .65; cursor: default; }
+      #status { min-height: 28px; margin-top: 10px; font-size: 12px; line-height: 1.4; }
       .ok { color: #137333; }
       .error { color: #b3261e; }
-      .author-credit { margin-top: 14px; color: #9aa0a6; font-size: 10px; text-align: center; }
+      .author-credit { margin-top: 6px; color: #727b87; font-size: 10px; text-align: center; }
     </style>
   </head>
   <body>
-    <h1>Confirmações de impressão</h1>
-    <p>A configuração é aplicada automaticamente 4 segundos depois de entrar no Kanban.</p>
-    <button id="run" type="button">Aplicar agora</button>
-    <div id="status" role="status"></div>
+    <header>
+      <img src="icons/icon128.png" alt="UP Tecnologias">
+      <div><h1>Preferências de impressão</h1><span>Delivery · Fichas · Mesas</span></div>
+    </header>
+    <p>Suas escolhas são aplicadas 4 segundos após entrar. As preferências ficam salvas neste navegador, para todas as contas Saipos usadas nele.</p>
+    <form id="preferences">
+      <div id="fields"></div>
+      <p>Campos ausentes são ignorados. “Não alterar” mantém a opção da Saipos.</p>
+      <div class="actions">
+        <button id="save" type="submit" disabled>Salvar preferências</button>
+        <button id="run" type="button" disabled>Salvar e aplicar agora</button>
+      </div>
+    </form>
+    <div id="status" role="status" aria-live="polite">Carregando preferências...</div>
     <div class="author-credit">Desenvolvido por math7x</div>
+    <script src="preferences.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

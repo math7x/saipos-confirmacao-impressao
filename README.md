@@ -20,8 +20,8 @@ Tecnologias principais: JavaScript, HTML, CSS e Chrome Extensions API.
 
 1. abre o menu do perfil;
 2. entra em **Confirmações de Impressão**;
-3. seleciona **Imprimir neste Computador**;
-4. seleciona **Sempre Imprimir** em todas as seis confirmações;
+3. aplica sua escolha para **Impressora Saipos Printer**;
+4. aplica as preferências de venda e cupom fiscal dos módulos disponíveis;
 5. clica em **SALVAR**.
 
 ## Instalação no Google Chrome
@@ -41,13 +41,31 @@ Tecnologias principais: JavaScript, HTML, CSS e Chrome Extensions API.
 
 ## Uso
 
-A extensão identifica a página de login `#/access/login`. Quando a Saipos redireciona para o Kanban em `#/app/sale/delivery/kanban/search-customer` ou para o Atendimento por Ficha em `#/app/sale/service-ticket/main`, ela aguarda 4 segundos e aplica a configuração automaticamente uma vez naquela sessão. Se a tela ainda estiver carregando, tenta novamente após 5 segundos. Para repetir manualmente, clique no ícone da extensão e em **Aplicar agora**.
+A extensão identifica a página de login `#/access/login`. Ao chegar em uma das telas abaixo, aguarda 4 segundos e aplica suas preferências uma vez naquela sessão:
 
-Os campos são tratados individualmente. Se uma loja não possuir Delivery, Atendimento por Fichas ou Atendimento de Mesa, a extensão configura apenas as opções disponíveis na janela e salva normalmente.
+- Kanban: `#/app/sale/delivery/kanban/search-customer`
+- Atendimento por Ficha: `#/app/sale/service-ticket/main`
+- Mesas: `#/app/sale/table-order/new-main`
+
+Se a tela ainda estiver carregando, tenta novamente após 5 segundos. Para aplicar manualmente, clique no ícone da extensão e em **Salvar e aplicar agora**.
+
+### Preferências por campo
+
+Abra o ícone da extensão para escolher separadamente o comportamento de **Venda** e **Cupom fiscal** em Delivery, Fichas e Mesas: **Sempre Imprimir**, **Nunca imprimir**, **Sempre Perguntar** ou **Não alterar**.
+
+Para a impressora, escolha **Imprimir neste Computador**, **Não Imprimir Neste Computador**, **Perguntar ao Iniciar** ou **Não alterar**.
+
+Exemplo: escolha **Sempre Imprimir** nos dois campos de Fichas e **Nunca imprimir** nos dois campos de Mesas; depois clique em **Salvar preferências**. As escolhas ficam gravadas neste navegador/computador e valem para todas as contas Saipos usadas nele, inclusive após fechar e reabrir o navegador. Não há sincronização entre computadores nem perfil separado por loja. Remover a extensão apaga essas preferências.
+
+Salvar novas preferências também agenda a aplicação nas abas abertas em uma das três telas atendidas. A execução continua aguardando qualquer outra janela da Saipos ser concluída. Se todos os campos estiverem em **Não alterar**, a extensão não abre a janela nem salva nada.
+
+Sem personalização, o padrão permanece **Imprimir neste Computador** e **Sempre Imprimir** nas confirmações.
+
+Os campos são tratados individualmente. Se uma loja não possuir Delivery, Atendimento por Fichas ou Atendimento de Mesa, a extensão configura apenas as opções disponíveis na janela e salva normalmente. Se um campo presente não aceitar a escolha solicitada, a execução informa a falha e não clica em Salvar.
 
 Se outra janela da Saipos estiver aberta, como **Opções de frente de caixa**, a extensão não executa nenhuma ação. Ela aguarda essa janela ser concluída e tenta novamente após 5 segundos.
 
-Depois de substituir ou atualizar os arquivos da extensão, abra a página de extensões do navegador e clique no botão **Recarregar** da extensão antes de testar novamente.
+Depois de substituir ou atualizar os arquivos da extensão, abra a página de extensões do navegador e clique no botão **Recarregar**. Atualize também as abas abertas da Saipos. A versão 1.4.0 adiciona a permissão de armazenamento para guardar as preferências.
 
 Ela só atua em páginas HTTPS do domínio `saipos.com` e não lê nem armazena usuário ou senha.
 

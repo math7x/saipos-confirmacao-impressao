@@ -4,28 +4,22 @@
   const CONFIG = {
     modalTitle: "Configurar confirmações de impressão",
     menuText: "Confirmações de Impressão",
-    saveText: "SALVAR",
-    fields: [
-      ["Impressora Saipos Printer", "Imprimir neste Computador"],
-      ["Delivery - Venda", "Sempre Imprimir"],
-      ["Delivery - Cupom fiscal", "Sempre Imprimir"],
-      ["Atendimento por Fichas - Venda", "Sempre Imprimir"],
-      ["Atendimento por Fichas - Cupom fiscal", "Sempre Imprimir"],
-      ["Atendimento de Mesa - Venda", "Sempre Imprimir"],
-      ["Atendimento de Mesa - Cupom fiscal", "Sempre Imprimir"]
-    ]
+    saveText: "SALVAR"
   };
 
-  const SESSION_KEY = "saipos-print-confirmations-configured-v1";
+  const preferencesStore = globalThis.SaiposPrintPreferences;
+  const SESSION_KEY = "saipos-print-confirmations-configured-v2";
   const LOGIN_HASH = "#/access/login";
   const TARGET_HASHES = [
     "#/app/sale/delivery/kanban/search-customer",
-    "#/app/sale/service-ticket/main"
+    "#/app/sale/service-ticket/main",
+    "#/app/sale/table-order/new-main"
   ];
   const LOGIN_DELAY_MS = 4000;
   const RETRY_DELAY_MS = 5000;
   let running = false;
   let automaticTimer = null;
+  let routeRevision = 0;
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -177,7 +171,8 @@
     return candidates[0] || null;
   }
 
-  async function openPrintDialog() {
+  async function openPrintDialog(checkReady = () => {}) {
+    checkReady();
     const alreadyOpenTitle = findExactText(CONFIG.modalTitle);
     if (alreadyOpenTitle) {
       return (
@@ -197,6 +192,7 @@
     }
 
     if (!menuItem) return null;
+    checkReady();
     (clickable(menuItem) || menuItem).click();
 
     const title = await waitFor(() => findExactText(CONFIG.modalTitle), 7000);
@@ -243,13 +239,17 @@
     const control = selectControl(container);
     if (!control) throw new Error(`Seletor não encontrado: ${labelText}`);
 
-    if (normalized(currentSelectText(control)).includes(normalized(desiredText))) return;
+    // Comparação exata: "Não Imprimir Neste Computador" contém o texto
+    // "Imprimir neste Computador", mas é uma escolha diferente.
+    if (normalized(currentSelectText(control)) === normalized(desiredText)) return;
 
     if (control instanceof HTMLSelectElement) {
       const option = [...control.options].find(
         (item) => normalized(item.textContent) === normalized(desiredText)
       );
-      if (!option) throw new Error(`Opção não encontrada: ${desiredText}`);
+      if (!option || option.disabled || control.disabled) {
+        throw new Error(`Opção indisponível: ${desiredText}`);
+      }
       control.value = option.value;
       control.dispatchEvent(new Event("input", { bubbles: true }));
       control.dispatchEvent(new Event("change", { bubbles: true }));
@@ -285,9 +285,6 @@
 
   async function configure({ manual = false } = {}) {
     if (running) return { ok: false, message: "A configuração já está em andamento." };
-    if (!manual && sessionStorage.getItem(SESSION_KEY) === "done") {
-      return { ok: true, skipped: true, message: "Já configurado nesta sessão." };
-    }
     if (loginIsVisible()) {
       sessionStorage.removeItem(SESSION_KEY);
       return { ok: false, skipped: true, message: "Aguardando o login." };
@@ -301,40 +298,62 @@
     }
 
     running = true;
+    if (manual) clearAutomaticTimer();
+    const revision = routeRevision;
+    function checkReady() {
+      if (revision !== routeRevision || loginIsVisible() || (!manual && !isTargetPage())) {
+        throw new Error("A página mudou. Aguardando a próxima execução.");
+      }
+      if (blockingDialogIsVisible()) {
+        throw new Error("Aguardando a janela atual da Saipos ser concluída.");
+      }
+    }
     try {
-      const modal = await openPrintDialog();
+      const preferences = await preferencesStore.load();
+      const fingerprint = preferencesStore.fingerprint(preferences);
+      if (!manual && sessionStorage.getItem(SESSION_KEY) === fingerprint) {
+        return { ok: true, skipped: true, message: "Preferências já aplicadas nesta sessão." };
+      }
+      checkReady();
+      const targets = preferencesStore.targets(preferences);
+      if (!targets.length) {
+        sessionStorage.setItem(SESSION_KEY, fingerprint);
+        return { ok: true, message: "Todos os campos estão em Não alterar. Nada foi modificado." };
+      }
+      const modal = await openPrintDialog(checkReady);
       if (!modal) throw new Error("Não foi possível abrir as confirmações de impressão.");
 
-      let availableFields = 0;
-      const ignoredFields = [];
+      const available = targets.filter(([label]) => findExactText(label, modal));
+      if (!available.length) {
+        throw new Error("Nenhum dos campos escolhidos está disponível nesta janela.");
+      }
 
-      for (const [label, desired] of CONFIG.fields) {
+      for (const [label, desired] of available) {
         // Nem todas as lojas possuem Delivery, Fichas e Mesas habilitados.
-        // Só tenta configurar os campos que realmente foram exibidos.
-        if (!findExactText(label, modal)) continue;
+        checkReady();
+        await chooseOption(modal, label, desired);
+      }
 
-        try {
-          await chooseOption(modal, label, desired);
-          availableFields += 1;
-        } catch (error) {
-          ignoredFields.push(label);
-          console.warn(`[Saipos Impressão] Campo ignorado: ${label}`, error);
+      checkReady();
+      for (const [label, desired] of available) {
+        const labelElement = findExactText(label, modal);
+        const control = labelElement && selectControl(fieldContainer(labelElement, modal));
+        if (!control || normalized(currentSelectText(control)) !== normalized(desired)) {
+          throw new Error(`Não foi possível confirmar a escolha em: ${label}. Nada foi salvo.`);
         }
       }
 
-      if (availableFields === 0) {
-        throw new Error("Nenhuma opção de impressão disponível foi encontrada.");
-      }
-
       const save = findSaveButton(modal);
-      if (!save) throw new Error("Botão SALVAR não encontrado.");
+      if (!save || save.disabled || save.getAttribute("aria-disabled") === "true") {
+        throw new Error("Botão SALVAR indisponível.");
+      }
       save.click();
-      await sleep(500);
+      const closed = await waitFor(() => !findExactText(CONFIG.modalTitle), 7000);
+      if (!closed) throw new Error("A janela não fechou após salvar. Confira a mensagem da Saipos.");
+      checkReady();
 
-      sessionStorage.setItem(SESSION_KEY, "done");
-      const summary = ignoredFields.length
-        ? `${availableFields} configurações aplicadas; ${ignoredFields.length} campo(s) indisponível(is).`
-        : `${availableFields} configurações de impressão aplicadas e salvas.`;
+      sessionStorage.setItem(SESSION_KEY, fingerprint);
+      const summary = `${available.length} preferências de impressão aplicadas e salvas.`;
       toast(summary, "success");
       return { ok: true, message: summary };
     } catch (error) {
@@ -347,7 +366,7 @@
   }
 
   function currentHash() {
-    return location.hash.replace(/\/$/, "");
+    return location.hash.split("?")[0].replace(/\/$/, "");
   }
 
   function isTargetPage() {
@@ -365,7 +384,6 @@
       automaticTimer = null;
 
       if (!isTargetPage()) return;
-      if (sessionStorage.getItem(SESSION_KEY) === "done") return;
 
       if (blockingDialogIsVisible()) {
         scheduleTargetRun(RETRY_DELAY_MS);
@@ -380,6 +398,7 @@
   }
 
   function handleRouteChange() {
+    routeRevision += 1;
     const hash = currentHash();
 
     if (hash === LOGIN_HASH) {
@@ -388,7 +407,7 @@
       return;
     }
 
-    if (TARGET_HASHES.includes(hash) && sessionStorage.getItem(SESSION_KEY) !== "done") {
+    if (TARGET_HASHES.includes(hash)) {
       scheduleTargetRun(LOGIN_DELAY_MS);
       return;
     }
@@ -400,6 +419,12 @@
     if (message?.type !== "SAIPOS_CONFIGURE_PRINTING") return;
     configure({ manual: true }).then(sendResponse);
     return true;
+  });
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !changes[preferencesStore.key]) return;
+    sessionStorage.removeItem(SESSION_KEY);
+    handleRouteChange();
   });
 
   window.addEventListener("hashchange", handleRouteChange);
