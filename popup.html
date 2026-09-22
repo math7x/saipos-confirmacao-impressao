@@ -24,6 +24,7 @@
       #save { background: white; color: #155da4; }
       button:disabled, select:disabled { opacity: .65; cursor: default; }
       #status { min-height: 28px; margin-top: 10px; font-size: 12px; line-height: 1.4; }
+      .automatic { margin: 8px 0 12px; padding: 9px; border: 1px solid #dce2eb; border-radius: 5px; background: white; line-height: 1.4; font-size: 12px; }
       .ok { color: #137333; }
       .error { color: #b3261e; }
       .author-credit { margin-top: 6px; color: #727b87; font-size: 10px; text-align: center; }
@@ -35,6 +36,7 @@
       <div><h1>Preferências de impressão</h1><span>Delivery · Fichas · Mesas</span></div>
     </header>
     <p>Suas escolhas são aplicadas 4 segundos após entrar. As preferências ficam salvas neste navegador, para todas as contas Saipos usadas nele.</p>
+    <div class="automatic"><strong id="extension-version">Automático</strong><br><span id="automatic-status" role="status">Verificando a aba atual...</span></div>
     <form id="preferences">
       <div id="fields"></div>
       <p>Campos ausentes são ignorados. “Não alterar” mantém a opção da Saipos.</p>

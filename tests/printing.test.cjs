@@ -7,9 +7,9 @@ const root = path.join(__dirname, "..");
 const prefSource = fs.readFileSync(path.join(root, "preferences.js"), "utf8");
 const contentSource = fs.readFileSync(path.join(root, "content.js"), "utf8");
 
-function harness(saved = {}, route = "#/app/sale/table-order/new-main", stored = {}) {
+function harness(saved = {}, route = "#/app/sale/table-order/new-main", stored = {}, session = new Map()) {
   const pending = new Map();
-  const session = new Map();
+  const intervals = [];
   const listeners = {};
   const state = {
     opened: 0, saved: 0, blocked: false, closed: true, toasts: [], fields: new Map(),
@@ -35,6 +35,7 @@ function harness(saved = {}, route = "#/app/sale/table-order/new-main", stored =
     },
     setTimeout: (fn, ms) => { pending.set(++timerId, { fn, ms }); return timerId; },
     clearTimeout: (id) => pending.delete(id),
+    setInterval: (fn) => { intervals.push(fn); return intervals.length; },
     window: { addEventListener: (name, fn) => { listeners[name] = fn; } },
     chrome: {
       storage: {
@@ -89,7 +90,7 @@ function harness(saved = {}, route = "#/app/sale/table-order/new-main", stored =
       state.confirmCategory = onConfirmed;
     }
   });
-  return { context, prefs, state, pending, session, listeners, stored,
+  return { context, prefs, state, pending, session, listeners, stored, intervals,
     api: context.testApi,
     text: (label) => { const s = state.fields.get(label); return s.options[s.selectedIndex].textContent; },
     fire: async () => {
@@ -180,23 +181,26 @@ test("criação de categoria aguarda Confirmar e retoma a impressão ao fechar",
   assert.equal(h.state.saved, 1);
 });
 
-test("não repete na sessão; novo login e novas preferências permitem reaplicar", async () => {
+test("cada tela executa uma vez; novo login e novas preferências permitem reaplicar", async () => {
   const h = harness();
   await h.fire();
   h.context.location.hash = "#/app/sale/service-ticket/main";
   h.api.handleRouteChange();
   await h.fire();
-  assert.equal(h.state.saved, 1);
+  assert.equal(h.state.saved, 2);
+  h.api.handleRouteChange();
+  await h.fire();
+  assert.equal(h.state.saved, 2);
   h.context.location.hash = "#/access/login";
   h.api.handleRouteChange();
   h.context.location.hash = "#/app/sale/table-order/new-main";
   h.api.handleRouteChange();
   await h.fire();
-  assert.equal(h.state.saved, 2);
+  assert.equal(h.state.saved, 3);
   await h.prefs.save({ tableSale: "never" });
   h.listeners.storage({ [h.prefs.key]: { newValue: h.stored[h.prefs.key] } }, "local");
   await h.fire();
-  assert.equal(h.state.saved, 3);
+  assert.equal(h.state.saved, 4);
   assert.equal(h.text("Atendimento de Mesa - Venda"), "Nunca imprimir");
 });
 
@@ -236,4 +240,48 @@ test("valores inválidos são normalizados; configuração padrão mantém compo
   assert.equal(normalized.printer, "computer");
   assert.equal(Object.keys(normalized).length, 7);
   assert.equal(h.prefs.targets({}).length, 7);
+});
+
+test("marcador persistente antigo não bloqueia Mesas e F5 permite nova execução", async () => {
+  const session = new Map();
+  const h = harness({}, undefined, {}, session);
+  session.set("saipos-print-confirmations-configured-v2", h.prefs.fingerprint({}));
+  session.set("saipos-print-confirmations-configured-v1", "done");
+  await h.fire();
+  assert.equal(h.state.saved, 1);
+  assert.equal((await h.api.configure()).skipped, true);
+  const reloaded = harness({}, undefined, h.stored, session);
+  await reloaded.fire();
+  assert.equal(reloaded.state.saved, 1);
+});
+
+test("Mesas é detectada mesmo se o roteador não emitir hashchange", async () => {
+  const h = harness({}, "#/app/store/customers");
+  h.context.location.hash = "#/app/sale/table-order/new-main";
+  h.intervals[0]();
+  assert.equal([...h.pending.values()][0].ms, 4000);
+  h.intervals[0]();
+  assert.equal(h.pending.size, 1);
+  await h.fire();
+  assert.equal(h.state.saved, 1);
+  h.intervals[0]();
+  assert.equal(h.pending.size, 0);
+});
+
+test("status informa espera por caixa, versão e conclusão sem abrir nada ao consultar", async () => {
+  const h = harness();
+  let status;
+  function read() {
+    h.listeners.message({ type: "SAIPOS_PRINT_STATUS" }, {}, (value) => { status = value; });
+    return status;
+  }
+  assert.equal(read().version, "1.4.2");
+  assert.equal(read().state, "scheduled");
+  assert.equal(h.state.opened, 0);
+  h.state.blocked = true;
+  await h.fire();
+  assert.equal(read().state, "waiting");
+  h.state.blocked = false;
+  await h.fire();
+  assert.equal(read().state, "done");
 });

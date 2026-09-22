@@ -41,13 +41,17 @@ Tecnologias principais: JavaScript, HTML, CSS e Chrome Extensions API.
 
 ## Uso
 
-A extensão identifica a página de login `#/access/login`. Ao chegar em uma das telas abaixo, aguarda 4 segundos e aplica suas preferências uma vez naquela sessão:
+A extensão identifica a página de login `#/access/login`. Ao chegar em uma das telas abaixo, aguarda 4 segundos e aplica suas preferências. O controle de execução é separado por tela e reinicia ao atualizar a página (F5), fazer novo login ou salvar novas preferências:
 
 - Kanban: `#/app/sale/delivery/kanban/search-customer`
 - Atendimento por Ficha: `#/app/sale/service-ticket/main`
 - Mesas: `#/app/sale/table-order/new-main`
 
 Se a tela ainda estiver carregando, tenta novamente após 5 segundos. Para aplicar manualmente, clique no ícone da extensão e em **Salvar e aplicar agora**.
+
+A versão 1.4.2 também verifica mudanças de endereço que não disparam o evento de navegação. Uma execução anterior no Delivery ou em Fichas não impede a primeira execução em Mesas. Retornar a uma tela já configurada, sem recarregar a página, não repete o processo.
+
+O painel **Automático** no ícone da extensão mostra a versão em execução e o estado da aba: agendado, aguardando uma janela, configurando, concluído ou erro. Caso a aba ainda use uma versão antiga, o painel orienta atualizar a página.
 
 ### Preferências por campo
 
@@ -65,7 +69,7 @@ Os campos são tratados individualmente. Se uma loja não possuir Delivery, Aten
 
 Se aparecer a janela de criação de categoria com os campos **Onde imprimir** e **Tipo de imposto**, a extensão pausa o processo. Preencha os dois campos e clique em **Confirmar**; quando a janela fechar, a extensão retoma a configuração das preferências de impressão automaticamente. Outras janelas da Saipos, como **Opções de frente de caixa**, continuam bloqueando a execução até serem concluídas.
 
-Depois de substituir ou atualizar os arquivos da extensão, abra a página de extensões do navegador e clique no botão **Recarregar**. Atualize também as abas abertas da Saipos. A versão 1.4.1 passa a aguardar explicitamente a confirmação da criação de categoria antes de retomar a automação.
+Depois de substituir ou atualizar os arquivos da extensão, abra a página de extensões do navegador e clique no botão **Recarregar**. Confirme a versão **1.4.2** e atualize também as abas abertas da Saipos. As preferências existentes são preservadas. A espera pela confirmação de criação de categoria, introduzida na versão 1.4.1, continua ativa.
 
 Ela só atua em páginas HTTPS do domínio `saipos.com` e não lê nem armazena usuário ou senha.
 

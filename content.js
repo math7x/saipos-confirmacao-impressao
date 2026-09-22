@@ -8,7 +8,10 @@
   };
 
   const preferencesStore = globalThis.SaiposPrintPreferences;
-  const SESSION_KEY = "saipos-print-confirmations-configured-v2";
+  // Sucesso por tela no documento atual. sessionStorage sobrevive ao F5
+  // e podia impedir uma nova aplicação mesmo depois de recarregar a Saipos.
+  const completedRoutes = new Map();
+  const CONTENT_VERSION = "1.4.2";
   const LOGIN_HASH = "#/access/login";
   const TARGET_HASHES = [
     "#/app/sale/delivery/kanban/search-customer",
@@ -23,6 +26,12 @@
   let automaticTimer = null;
   let routeRevision = 0;
   let categoryWaitCleanup = null;
+  let lastObservedHash = null;
+  let automaticStatus = { state: "waiting", message: "Aguardando uma tela compatível." };
+
+  function report(state, message) {
+    automaticStatus = { state, message };
+  }
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -355,10 +364,12 @@
   async function configure({ manual = false } = {}) {
     if (running) return { ok: false, message: "A configuração já está em andamento." };
     if (loginIsVisible()) {
-      sessionStorage.removeItem(SESSION_KEY);
+      completedRoutes.clear();
+      report("waiting", "Aguardando o login.");
       return { ok: false, skipped: true, message: "Aguardando o login." };
     }
     if (blockingDialogIsVisible()) {
+      report("waiting", "Aguardando a janela atual da Saipos ser concluída.");
       return {
         ok: false,
         skipped: true,
@@ -369,8 +380,9 @@
     running = true;
     if (manual) clearAutomaticTimer();
     const revision = routeRevision;
+    const route = currentHash();
     function checkReady() {
-      if (revision !== routeRevision || loginIsVisible() || (!manual && !isTargetPage())) {
+      if (revision !== routeRevision || route !== currentHash() || loginIsVisible() || (!manual && !isTargetPage())) {
         throw new Error("A página mudou. Aguardando a próxima execução.");
       }
       if (blockingDialogIsVisible()) {
@@ -380,15 +392,18 @@
     try {
       const preferences = await preferencesStore.load();
       const fingerprint = preferencesStore.fingerprint(preferences);
-      if (!manual && sessionStorage.getItem(SESSION_KEY) === fingerprint) {
-        return { ok: true, skipped: true, message: "Preferências já aplicadas nesta sessão." };
+      if (!manual && completedRoutes.get(route) === fingerprint) {
+        report("done", "Preferências já aplicadas nesta tela. Atualize a Saipos para repetir.");
+        return { ok: true, skipped: true, message: automaticStatus.message };
       }
       checkReady();
       const targets = preferencesStore.targets(preferences);
       if (!targets.length) {
-        sessionStorage.setItem(SESSION_KEY, fingerprint);
+        completedRoutes.set(route, fingerprint);
+        report("done", "Todos os campos estão em Não alterar.");
         return { ok: true, message: "Todos os campos estão em Não alterar. Nada foi modificado." };
       }
+      report("running", "Abrindo as confirmações de impressão...");
       const modal = await openPrintDialog(checkReady);
       if (!modal) throw new Error("Não foi possível abrir as confirmações de impressão.");
 
@@ -397,6 +412,7 @@
         throw new Error("Nenhum dos campos escolhidos está disponível nesta janela.");
       }
 
+      report("running", "Aplicando suas preferências de impressão...");
       for (const [label, desired] of available) {
         // Nem todas as lojas possuem Delivery, Fichas e Mesas habilitados.
         checkReady();
@@ -421,12 +437,14 @@
       if (!closed) throw new Error("A janela não fechou após salvar. Confira a mensagem da Saipos.");
       checkReady();
 
-      sessionStorage.setItem(SESSION_KEY, fingerprint);
+      completedRoutes.set(route, fingerprint);
       const summary = `${available.length} preferências de impressão aplicadas e salvas.`;
+      report("done", summary);
       toast(summary, "success");
       return { ok: true, message: summary };
     } catch (error) {
       console.warn("[Saipos Impressão]", error);
+      report("error", error.message);
       if (manual) toast(error.message, "error");
       return { ok: false, message: error.message };
     } finally {
@@ -449,28 +467,38 @@
 
   function scheduleTargetRun(delayMs) {
     clearAutomaticTimer();
+    if (delayMs === LOGIN_DELAY_MS) {
+      report("scheduled", "Aplicação automática agendada para daqui a 4 segundos.");
+    }
     automaticTimer = setTimeout(async () => {
       automaticTimer = null;
 
       if (!isTargetPage()) return;
 
-      const categoryDialog = categoryCreationDialog();
-      if (categoryDialog) {
-        toast("Preencha Onde imprimir e Tipo de imposto; após Confirmar, a impressão será configurada.");
-        waitForCategoryConfirmation(categoryDialog, () => {
-          if (isTargetPage()) scheduleTargetRun(CATEGORY_RESUME_DELAY_MS);
-        });
-        return;
-      }
+      try {
+        const categoryDialog = categoryCreationDialog();
+        if (categoryDialog) {
+          report("waiting", "Aguardando preencher e confirmar a criação de categoria.");
+          toast("Preencha Onde imprimir e Tipo de imposto; após Confirmar, a impressão será configurada.");
+          waitForCategoryConfirmation(categoryDialog, () => {
+            if (isTargetPage()) scheduleTargetRun(CATEGORY_RESUME_DELAY_MS);
+          });
+          return;
+        }
 
-      if (blockingDialogIsVisible()) {
-        scheduleTargetRun(RETRY_DELAY_MS);
-        return;
-      }
+        if (blockingDialogIsVisible()) {
+          report("waiting", "Aguardando fechar a janela da Saipos (por exemplo, seleção de caixa).");
+          scheduleTargetRun(RETRY_DELAY_MS);
+          return;
+        }
 
-      const result = await configure();
-      if (!result.ok && isTargetPage()) {
-        scheduleTargetRun(RETRY_DELAY_MS);
+        const result = await configure();
+        if (!result.ok && isTargetPage()) {
+          scheduleTargetRun(RETRY_DELAY_MS);
+        }
+      } catch (error) {
+        report("error", error.message || "Erro ao verificar a página. Tentando novamente.");
+        if (isTargetPage()) scheduleTargetRun(RETRY_DELAY_MS);
       }
     }, delayMs);
   }
@@ -479,10 +507,12 @@
     routeRevision += 1;
     stopWaitingForCategory();
     const hash = currentHash();
+    lastObservedHash = hash;
 
     if (hash === LOGIN_HASH) {
       clearAutomaticTimer();
-      sessionStorage.removeItem(SESSION_KEY);
+      completedRoutes.clear();
+      report("waiting", "Aguardando o login.");
       return;
     }
 
@@ -492,9 +522,14 @@
     }
 
     clearAutomaticTimer();
+    report("waiting", "Aguardando entrar em Kanban, Fichas ou Mesas.");
   }
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type === "SAIPOS_PRINT_STATUS") {
+      sendResponse({ ...automaticStatus, route: currentHash(), version: CONTENT_VERSION });
+      return;
+    }
     if (message?.type !== "SAIPOS_CONFIGURE_PRINTING") return;
     configure({ manual: true }).then(sendResponse);
     return true;
@@ -502,10 +537,17 @@
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local" || !changes[preferencesStore.key]) return;
-    sessionStorage.removeItem(SESSION_KEY);
+    completedRoutes.clear();
     handleRouteChange();
   });
 
   window.addEventListener("hashchange", handleRouteChange);
+  window.addEventListener("popstate", () => {
+    if (lastObservedHash !== currentHash()) handleRouteChange();
+  });
+  // Alguns roteadores mudam o hash via History API sem disparar hashchange.
+  setInterval(() => {
+    if (lastObservedHash !== currentHash()) handleRouteChange();
+  }, 1000);
   handleRouteChange();
 })();

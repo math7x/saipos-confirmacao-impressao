@@ -5,8 +5,36 @@
   const fieldsRoot = document.getElementById("fields");
   const runButton = document.getElementById("run");
   const status = document.getElementById("status");
+  const automaticStatus = document.getElementById("automatic-status");
+  const installedVersion = chrome.runtime.getManifest().version;
+  document.getElementById("extension-version").textContent = "Automático · v" + installedVersion;
   const controls = new Map();
   let busy = false;
+  let checkingStatus = false;
+
+  async function refreshAutomaticStatus() {
+    if (checkingStatus) return;
+    checkingStatus = true;
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id || !/^https:\/\/([^.]+\.)*saipos\.com\//i.test(tab.url || "")) {
+        automaticStatus.textContent = "Abra a aba da Saipos para acompanhar a execução.";
+        return;
+      }
+      const result = await chrome.tabs.sendMessage(tab.id, { type: "SAIPOS_PRINT_STATUS" });
+      if (!result || result.version !== installedVersion) {
+        automaticStatus.textContent = "A página está com uma versão antiga. Atualize a aba da Saipos (F5).";
+        return;
+      }
+      automaticStatus.textContent = result.message;
+    } catch {
+      automaticStatus.textContent = "A extensão não respondeu nesta aba. Atualize a Saipos (F5).";
+    } finally {
+      checkingStatus = false;
+    }
+  }
+  void refreshAutomaticStatus();
+  setInterval(refreshAutomaticStatus, 1000);
 
   function show(message, type = "") {
     status.className = type;
