@@ -29,7 +29,7 @@ Tecnologias principais: JavaScript, HTML, CSS e Chrome Extensions API.
 1. Abra `chrome://extensions`.
 2. Ative **Modo do desenvolvedor** no canto superior direito.
 3. Clique em **Carregar sem compactação**.
-4. Selecione esta pasta: `EXTENSÃO CONFIRMA IMPRESSÃO SAIPOS`.
+4. Selecione esta pasta: `Extensão - configurar impressão automática na Saipos`.
 5. Acesse ou atualize `https://conta.saipos.com/` e faça login.
 
 ## Instalação no Microsoft Edge
